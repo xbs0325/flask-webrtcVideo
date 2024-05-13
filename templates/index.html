@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebRTC视频</title>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.js"></script>
+    <style>
+        body {
+            background: url('/static/picture.jpg') no-repeat center center / cover;
+            font-family: Arial, sans-serif;
+            position: relative;
+            z-index: 0;
+            height: 100vh; /* 确保 body 至少有视窗的高度 */
+        }
+
+
+        #localVideo {
+            width: 20%; /* 本地视频占窗口的30%宽度 */
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            border: 3px solid #ddd; /* 灰色边框 */
+            transform: translate(-40%, -10%); /* 中心对齐 */
+            border-radius: 8px; /* 圆角边框 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 轻微阴影 */
+            z-index: 1; /* 确保本地视频在背景之上 */
+        }
+
+        /* 远程视频样式 */
+        #remoteVideo {
+            width: 60%; /* 远程视频占窗口的70%宽度 */
+            height: auto;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-70%, -50%); /* 中心对齐 */
+            border: 5px solid #ccc; /* 浅灰色边框 */
+            border-radius: 10px; /* 圆角边框 */
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2); /* 明显阴影 */
+            z-index: 1; /* 确保本地视频在背景之上 */
+        }
+        .button-container {
+            position: absolute;
+            top: 40%; /* 根据需要调整 */
+            right: 15%; /* 根据 localVideo 的右侧位置调整 */
+            display: flex;
+            flex-direction: column; /* 垂直排列按钮 */
+            gap: 10px; /* 按钮间距 */
+        }
+
+        button {
+            background-color: blue;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        button:active {
+            background-color: lightblue;
+        }
+
+        .button-disconnect {
+            background-color: red; /* 断开状态的按钮颜色 */
+        }
+
+        span {
+            color: white; /* 文本颜色 */
+            background-color: rgba(0, 0, 0, 0.5); /* 背景颜色 */
+            padding: 5px 10px; /* 内边距 */
+            border-radius: 10px; /* 圆角 */
+            font-size: 16px; /* 字体大小 */
+        }
+
+    </style>
+</head>
+<body>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div class="button-container">
+        <span id="text">只有两人及以下才可以连接</span>
+        <span id="connectedUsers">已进入此站点人数: 0</span>
+        <button id="toggleConnection" disabled>连接</button>
+        <button id="home">返回至主页</button>
+    </div>
+
+    <script>
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const socket = io('http://xxx.xxx.xxx.xxx:xxxx/');
+        let localStream;
+        let peerConnection;
+
+        // 媒体流获取和显示
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                localVideo.srcObject = stream;
+                localStream = stream;
+            }).catch(error => {
+                console.error('MediaStream Error:', error);
+            });
+
+        document.getElementById('home').addEventListener('click', function () {
+            window.location.href = '/';
+        });
+
+        document.getElementById('toggleConnection').addEventListener('click', function() {
+            if (!peerConnection) { // 如果当前未连接
+
+                call();  // 调用连接函数
+                this.textContent = '断开'; // 修改按钮文本为“断开”
+                this.style.backgroundColor = 'red'; // 断开时的按钮颜色
+                this.classList.remove('button-disconnect');
+            } else {
+                peerConnection.close(); // 关闭 RTCPeerConnection
+                peerConnection = null;
+                this.textContent = '连接'; // 修改按钮文本为“连接”
+                this.style.backgroundColor = 'blue'; // 连接时的按钮颜色
+                this.classList.add('button-disconnect');
+                if (remoteVideo.srcObject) {
+                    remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+                    remoteVideo.srcObject = null;
+                }
+            }
+        });
+
+        function call() {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [
+                    {urls: 'stun:xxx.xxx.xxx.xxx:xxxx'},
+                    {
+                      urls: 'turn:xxx.xxx.xxx.xxx:xxxx',
+                      username: 'xxx',
+                      credential: 'xxx'
+                    }
+                ]
+            });
+
+            // 将本地流加入连接
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+                console.log('将本地流加入连接')
+            });
+
+            // 设置远端视频流
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+                console.log('设置远端视频流')
+            };
+
+            // 监听ICE连接状态变化
+            peerConnection.oniceconnectionstatechange = function(event) {
+                console.log('ICE State Change:', peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'disconnected') {
+                    // 停止远程视频流
+                    remoteVideo.srcObject = null;
+                    document.getElementById('toggleConnection').textContent = '连接'; // 修改按钮文本为“连接”
+                    document.getElementById('toggleConnection').style.backgroundColor = 'blue'; // 连接时的按钮颜色
+                    document.getElementById('toggleConnection').classList.add('button-disconnect');
+                    // 更新 UI 或其他逻辑
+                    console.log('视频已清空');
+                }
+            };
+
+            // 创建offer
+            peerConnection.createOffer().then(offer => {
+                return peerConnection.setLocalDescription(offer);
+            }).then(() => {
+                socket.emit('signal', { type: 'offer', offer: peerConnection.localDescription });
+                console.log('接收offer发送signal');
+            }).catch(error => {
+                console.error('Offer or setLocalDescription error:', error);
+            });
+
+            // 发送ICE候选到服务器
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('ice_candidate', { candidate: event.candidate });
+                }
+            };
+
+            // 接收来自其他客户端的ICE候选
+            socket.on('ice_candidate', data => {
+                var candidate = new RTCIceCandidate(data.candidate);
+                peerConnection.addIceCandidate(candidate);
+            });
+
+            // 处理信令数据
+            socket.on('signal', data => {
+                if (data.type === 'offer') {
+                    console.log('处理信令数据signal');
+                    peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
+                    .then(() => {
+                        return peerConnection.createAnswer();
+                    })
+                    .then(answer => {
+                        return peerConnection.setLocalDescription(answer);
+                    })
+                    .then(() => {
+                        socket.emit('signal', { type: 'answer', answer: peerConnection.localDescription });
+                    })
+                    .catch(error => {
+                        console.error('Answer or setRemote/LocalDescription error:', error);
+                    });
+                } else if (data.type === 'answer') {
+                    console.log('处理信令数据answer');
+                    peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
+                    .catch(error => {
+                        console.error('SetRemoteDescription error:', error);
+                    });
+                }
+            });
+        }
+
+        socket.on('user_count', data => {
+            const Count = data.count;
+            document.getElementById('connectedUsers').textContent = '已进入此站点人数: ' + Count;
+            const toggleButton = document.getElementById('toggleConnection');
+            if (Count <= 2) {
+                toggleButton.disabled = false;
+                console.log("可以连接。");
+            } else {
+                toggleButton.disabled = true;
+                console.log("已有足够用户连接，无法进行新的连接。");
+            }
+        });
+
+        socket.on("connect", () => {
+            console.log("a user connected ");
+        });
+
+        socket.on("disconnect", () => {
+            console.log("user disconnected ");
+        });
+
+    </script>
+
+</body>
+</html>

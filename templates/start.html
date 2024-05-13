@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>主页</title>
+    <style>
+        body {
+            background: url('/static/picture.jpg') no-repeat center center / cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            width: 80%;
+            height: 60%; /* 设置主容器高度 */
+            background: rgba(255, 255, 255, 0.8); /* 背景半透明 */
+            padding: 20px;
+            border-radius: 10px; /* 边框圆角 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 阴影效果 */
+        }
+
+        .sensor-data {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .data-block {
+            background: #f7f7f7;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 10px 0;
+        }
+
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* 间隔 */
+        }
+
+        .glow-button {
+            border: none;
+            outline: none;
+            color: #fff;
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #6a3093, #a044ff);
+            text-transform: uppercase;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%; /* 按钮宽度 */
+            transition: background 0.5s;
+        }
+
+        @keyframes slide {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sensor-data">
+            <div class="data-block">temperature: <span id="temperatureDisplay">0</span>°C</div>
+            <div class="data-block">humidity: <span id="humidityDisplay">0</span>%</div>
+            <div class="data-block">light: <span id="lightDisplay">0</span> Lux</div>
+            <div class="data-block">sound: <span id="soundDisplay">0</span> dB</div>
+        </div>
+        <div class="controls">
+            <button class="glow-button" id="mediaButton">媒体流</button>
+            <button class="glow-button" id="other">其他功能</button> <!-- 可以添加更多功能按钮 -->
+        </div>
+    </div>
+    <script>
+         document.getElementById('mediaButton').addEventListener('click', function () {
+            window.location.href = '/media';
+        });
+
+         document.getElementById('other').addEventListener('click', function () {
+            window.location.href = '/other';
+        });
+        function updateData() {
+            fetch('/temperature-sensor')
+            .then(response => response.json())
+            .then(data => {
+            document.getElementById('temperatureDisplay').innerText = data.temperature;
+        });
+
+        fetch('/humidity-sensor')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('humidityDisplay').innerText = data.humidity;
+            });
+
+        fetch('/light-sensor')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('lightDisplay').innerText = data.light;
+            });
+
+        fetch('/sound-sensor')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('soundDisplay').innerText = data.sound;
+            });
+        }
+        setInterval(updateData, 300); // Update sensor data every 1 second
+
+    </script>
+</body>
+</html>
